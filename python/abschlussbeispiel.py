@@ -8,7 +8,7 @@ import numpy as np
 k = [ 5, 10, 20 ] # Kontakte pro Person
 m = [ 1, 5, 10 ] # Infizierte an Tag 1
 p = [ 0.1, 0.25, 0.5 ]
-n = 5000 # Anzahl der Personen im Modell
+n = 100 # Anzahl der Personen im Modell
 fpd = 5 # Erster möglicher Tag, an dem man sterben kann
 isol = [ 7, 20 ] # Isolation ab Tag isol - 20 steht hierbei für keine Isolation (nachdem alle Kranken ab Tag 16 gesundet oder tot sind)
 d = 0.001 # An jedem weiteren Tag beträgt die Sterbewahrscheinlichkeit 0.1%
@@ -43,10 +43,8 @@ def createAMatrix(k, n):
 
   return A
 
-# Simulations-Funktion (Parameter n, k, m, p)
-def simul_epidemic(n, k, m, p, isol=20):
-
-  A = createAMatrix(k, n)
+# Simulations-Funktion (Parameter n, m, p)
+def simul_epidemic(n, m, p, contactMatrix, isol=20):
 
   # Krankheitsdauer (gleichverteilt zwischen 10 und 15 Tagen)
   # Tag 1 ist der Tag, an dem Person angesteckt wird - Genesung an Tag x+1 (Ansteckend bis Tag x)
@@ -89,7 +87,7 @@ def simul_epidemic(n, k, m, p, isol=20):
         results[t, currentlySickPerson] = "D"
 
         # simulation of infection
-        contacts = np.where(A[currentlySickPerson])[0]
+        contacts = np.where(contactMatrix[currentlySickPerson])[0]
         for contact in contacts:
           if results[t, contact] == "H" and results[t - 1, contact] == "H" and np.random.random() < p:
             results[t, contact] = "D"
@@ -97,4 +95,12 @@ def simul_epidemic(n, k, m, p, isol=20):
 
   return results
 
-print(simul_epidemic(100, k[0], m[0], p[0]))
+contactMatrices = [ 
+    createAMatrix(k[0], n),
+    createAMatrix(k[1], n),
+    createAMatrix(k[2], n)
+]
+
+print(simul_epidemic(n, m[0], p[0], contactMatrices[0]))
+print(simul_epidemic(n, m[0], p[1], contactMatrices[1]))
+print(simul_epidemic(n, m[2], p[0], contactMatrices[2]))
