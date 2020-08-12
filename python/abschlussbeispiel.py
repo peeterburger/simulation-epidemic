@@ -16,43 +16,36 @@ d = 0.001 # An jedem weiteren Tag beträgt die Sterbewahrscheinlichkeit 0.1%
 # Das ergibt eine Sterbewahrscheinlichkeit von 1 - 0.999^5 bis 1 - 0.999^10 (im Durchschnitt ca. 0.75 %)
 
 # Adjazenzmatrix initialisieren
-def createAMatrix(k, n = 5000):
-  A = numpy.full((n, n), False, dtype = bool)
+def createAMatrix(k, n):
+  A = numpy.full((n, n), False)
 
   # iterate through rows
   for i in range(n):
 
-    # calcualte index filter
-    indexFilter = A.sum(axis = 0) < k
+    # calcualte the index filter
+    indexFilter = A.sum(axis=0) < k
     for j in range(i + 1):
       indexFilter[j] = False
 
-    rowsAllowed = sum(indexFilter)
-    rowsRemaining = k - sum(A[i])
+    nContactsPossible = sum(indexFilter)
+    nContactsRemaining = k - sum(A[i])
 
-    if rowsRemaining > 0 and rowsAllowed > 0:
-      numberNewContacts = min(rowsAllowed, rowsRemaining)
+    if nContactsRemaining > 0 and nContactsPossible > 0:
+      nNewContacts = min(nContactsPossible, nContactsRemaining)
 
+      # hypergeometric distribution of contacts
       newContacts = numpy.random.choice(numpy.concatenate([
-          numpy.full(numberNewContacts, True),
-          numpy.full(rowsAllowed - numberNewContacts, False)
-      ]), rowsAllowed, replace=False)
+          numpy.full(nNewContacts, True),
+          numpy.full(nContactsPossible - nNewContacts, False)
+      ]), nContactsPossible, replace=False)
 
       A[i, indexFilter] = newContacts
       A[indexFilter, i] = newContacts
 
   return A
 
-# Berechne Matrizen und speichere
-# A_k5 = createAMatrix(5)
-# A_k10 = createAMatrix(10)
-# A_k20 = createAMatrix(20)
-# save(A_k5, A_k10, A_k20, file = "Adjazenzmatrizen.Rdata")
-
 # Simulations-Funktion (Parameter k, m, p)
-def simul_epidemic(n, k, m, p, isol = 20):
-
-  # Adjazenzmatrix laden (je nach k)
+def simul_epidemic(n, k, m, p, isol=20):
 
   A = createAMatrix(k, n)
 
@@ -73,13 +66,11 @@ def simul_epidemic(n, k, m, p, isol = 20):
   results[0] = numpy.concatenate([numpy.full(m, "D"), numpy.full(n - m, "H")])
 
   for t in range(1, T):
-    print(t)
-
     sickPeople = numpy.where(results[t - 1] == "D")[0]
 
     # stop the simulation, if further infection is impossible
-    if sickPeople.size <= 0:
-      break
+    # if sickPeople.size <= 0:
+    #   break
 
     daysSick[sickPeople] += 1
 
@@ -88,12 +79,10 @@ def simul_epidemic(n, k, m, p, isol = 20):
     for sickPerson in sickPeople:
       if daysSick[sickPerson] > duration[sickPerson]:
         # simualtion of recovery
-        print(sickPerson, " cured")
         daysSick[sickPerson] = 0
         results[t:T, sickPerson] = "R"
       elif daysSick[sickPerson] >= fpd and random.random() < d:
         # simualtion of fatality
-        print(sickPerson, " died")
         daysSick[sickPerson] = 0
         results[t:T, sickPerson] = "T"
       else:
@@ -104,13 +93,9 @@ def simul_epidemic(n, k, m, p, isol = 20):
         contacts = numpy.where(A[sickPerson])[0]
         for contact in contacts:
           if results[t, contact] == "H" and results[t - 1, contact] == "H" and random.random() < p:
-            print("%s infected %s" % (sickPerson, contact))
             results[t, contact] = "D"
             newInfections[t] += 1
 
-    # print(results[t])
-    print("%d new infections" % newInfections[t])
+  return results
 
-  print(results[-1])
-
-simul_epidemic(5000, k[0], m[0], p[0], 20)
+print(simul_epidemic(100, k[0], m[0], p[0], 20))
