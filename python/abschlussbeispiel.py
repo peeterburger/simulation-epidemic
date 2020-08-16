@@ -8,7 +8,7 @@ import numpy as np
 k = [ 5, 10, 20 ] # Kontakte pro Person
 m = [ 1, 5, 10 ] # Infizierte an Tag 1
 p = [ 0.1, 0.25, 0.5 ]
-n = 100 # Anzahl der Personen im Modell
+n = 5000 # Anzahl der Personen im Modell
 fpd = 5 # Erster möglicher Tag, an dem man sterben kann
 isol = [ 7, 20 ] # Isolation ab Tag isol - 20 steht hierbei für keine Isolation (nachdem alle Kranken ab Tag 16 gesundet oder tot sind)
 d = 0.001 # An jedem weiteren Tag beträgt die Sterbewahrscheinlichkeit 0.1%
@@ -21,25 +21,33 @@ def createAMatrix(k, n):
   # iterate through rows
   for i in range(n):
 
-    # calcualte the index filter
+    nContactsRemaining = k - A[i].sum()
+
+    # if no contacts have to be added, continue with the next person
+    if nContactsRemaining <= 0:
+      continue
+
+    # all j < i are automatically excluded, since their column sum is
+    # always greater or equal k
     indexFilter = A.sum(axis=0) < k
-    for j in range(i + 1):
-      indexFilter[j] = False
 
-    nContactsPossible = sum(indexFilter)
-    nContactsRemaining = k - sum(A[i])
+    # a person is not in contact with itself
+    indexFilter[i] = False
 
-    if nContactsRemaining > 0 and nContactsPossible > 0:
-      nNewContacts = min(nContactsPossible, nContactsRemaining)
+    nContactsPossible = indexFilter.sum()
+    
+    # if it is not possible to add further contacts, continue with
+    # the next person
+    if nContactsPossible <= 0:
+      continue
 
-      # hypergeometric distribution of contacts
-      newContacts = np.random.choice(np.concatenate([
-          np.full(nNewContacts, True),
-          np.full(nContactsPossible - nNewContacts, False)
-      ]), nContactsPossible, replace=False)
+    nNewContacts = min(nContactsPossible, nContactsRemaining)
 
-      A[i, indexFilter] = newContacts
-      A[indexFilter, i] = newContacts
+    possibleContacts = np.where(indexFilter)[0]
+    chosenContacts = np.random.choice(possibleContacts, nNewContacts, replace=False)
+
+    for contact in chosenContacts:
+      A[i, contact] = A[contact, i] = True
 
   return A
 
@@ -56,8 +64,6 @@ def simul_epidemic(n, m, p, contactMatrix, isol=20):
   results = np.full((T, n), "H")
   # Bisherige Dauer der Ansteckung
   daysSick = np.full(n, 0)
-  # Neuinfektionen pro Tag
-  newInfections = np.full(T, 0)
 
   # Initial infection at day 1
   results[0] = np.concatenate([
@@ -91,16 +97,44 @@ def simul_epidemic(n, m, p, contactMatrix, isol=20):
         for contact in contacts:
           if results[t, contact] == "H" and results[t - 1, contact] == "H" and np.random.random() < p:
             results[t, contact] = "D"
-            newInfections[t] += 1
 
   return results
 
-contactMatrices = [ 
-    createAMatrix(k[0], n),
-    createAMatrix(k[1], n),
-    createAMatrix(k[2], n)
-]
+def evaluateResult(result):
+  T = result.shape[0]
 
-print(simul_epidemic(n, m[0], p[0], contactMatrices[0]))
-print(simul_epidemic(n, m[0], p[1], contactMatrices[1]))
-print(simul_epidemic(n, m[2], p[0], contactMatrices[2]))
+  currentlyInfected = np.empty(T, dtype=int)
+  currentlyHealthy = np.empty(T, dtype=int)
+  currentlyResistant = np.empty(T, dtype=int)
+  currentlyDeath = np.empty(T, dtype=int)
+  newInfections = np.empty(T, dtype=int)
+
+  # basic statistics
+  for t, dailyStatistics in enumerate(result):
+    currentlyInfected[t] = (dailyStatistics == 'D').sum()
+    currentlyHealthy[t] = (dailyStatistics == 'H').sum()
+    currentlyResistant[t] = (dailyStatistics == 'R').sum()
+    currentlyDeath[t] = (dailyStatistics == 'T').sum()
+
+  # new infections
+  for t, dailyStatistics in enumerate(result):
+    if t == 0:
+      newInfections[t] = (result[0] == 'D').sum()
+    else:
+      newInfections[t] = np.logical_and(
+          result[t - 1] == 'H',
+          result[t] == 'D'
+      ).sum()
+
+  print(currentlyInfected)
+  print(currentlyHealthy)
+  print(currentlyResistant)
+  print(currentlyDeath)
+  print(newInfections)
+
+n = 1000
+
+contactMatrix = createAMatrix(k[0], n)
+result = simul_epidemic(n, m[0], p[0], contactMatrix)
+
+evaluateResult(result)
