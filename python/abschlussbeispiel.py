@@ -3,6 +3,7 @@
 
 # Dependencies
 import numpy as np
+import matplotlib.pyplot as plt
 
 # Parameter
 k = [ 5, 10, 20 ] # Kontakte pro Person
@@ -106,7 +107,7 @@ def evaluateResult(result):
   currentlyInfected = np.empty(T, dtype=int)
   currentlyHealthy = np.empty(T, dtype=int)
   currentlyResistant = np.empty(T, dtype=int)
-  currentlyDeath = np.empty(T, dtype=int)
+  currentlyDead = np.empty(T, dtype=int)
   newInfections = np.empty(T, dtype=int)
 
   # basic statistics
@@ -114,7 +115,7 @@ def evaluateResult(result):
     currentlyInfected[t] = (dailyStatistics == 'D').sum()
     currentlyHealthy[t] = (dailyStatistics == 'H').sum()
     currentlyResistant[t] = (dailyStatistics == 'R').sum()
-    currentlyDeath[t] = (dailyStatistics == 'T').sum()
+    currentlyDead[t] = (dailyStatistics == 'T').sum()
 
   # new infections
   for t, dailyStatistics in enumerate(result):
@@ -126,15 +127,24 @@ def evaluateResult(result):
           result[t] == 'D'
       ).sum()
 
-  print(currentlyInfected)
-  print(currentlyHealthy)
-  print(currentlyResistant)
-  print(currentlyDeath)
-  print(newInfections)
+  return (currentlyInfected, currentlyHealthy,
+      currentlyResistant, currentlyDead, newInfections)
 
-n = 1000
+def plotStatistics(statistics):
+  plt.plot(np.arange(100), statistics[0])
+  plt.plot(np.arange(100), statistics[1])
+  plt.plot(np.arange(100), statistics[2])
+  plt.plot(np.arange(100), statistics[3])
+  plt.plot(np.arange(100), statistics[4])
+  plt.xlabel("days")
+  plt.ylabel("people")
+  plt.savefig("plot3.pdf")
+
+n = 2000
 
 contactMatrix = createAMatrix(k[0], n)
-result = simul_epidemic(n, m[0], p[0], contactMatrix)
 
-evaluateResult(result)
+result = simul_epidemic(n, m[0], p[0], contactMatrix)
+statistics = evaluateResult(result)
+
+plotStatistics(statistics)
